@@ -132,6 +132,31 @@ surfaces = None
 latestSurfaceIndex = -1 
 objects = None
 
+def rayIntersectWorld(ray, selfObj = None):
+    global objects
+    hitArr = []
+    for obj in objects:
+        if obj == selfObj:
+            continue
+        elif isinstance(obj, Sphere):
+            hitArr.append(checkSphereIntersection(ray, obj))
+        elif isinstance(obj, Cylinder):
+            hitArr.append(checkCylinderIntersection(ray, obj))
+
+    closestObject = None
+    closestT = None
+    for obj in hitArr:
+        if obj != None:
+            if closestT == None:
+                closestObject = obj
+                closestT = obj.t
+            else:
+                if obj.t < closestT:
+                    closestObject = obj
+                    closestT = obj.t
+    
+    return closestObject  
+
 def checkSphereIntersection(ray, s):
     dx = ray.direction.x - ray.origin.x
     dy = ray.direction.y - ray.origin.y
@@ -174,6 +199,14 @@ def checkCylinderIntersection(ray, cyl):
     if d < 0:
         return None
     else:
+        # Main body T checks
+        mainBodyHit = None
+        topcapHit = None
+        botcapHit = None
+        mainBodyFlag = False
+        topcapFlag = False
+        botcapFlag = False
+        
         t1 = (-b - sqrt(d)) / (2 * a)
         t2 = (-b + sqrt(d)) / (2 * a)
         
@@ -187,81 +220,80 @@ def checkCylinderIntersection(ray, cyl):
             y1Flag = True
         if y2 > cyl.ymin and y2 < cyl.ymax:
             y2Flag = True
-        
-        if y1Flag == False and y2Flag == False:
-            # Cap Hit check
-            if dy != 0:
-                tmin = (cyl.ymin - ray.origin.y) / dy
-                tmax = (cyl.ymax - ray.origin.y) / dy
-                if tmin > 0 and tmax > 0:
-                    t = min(tmin, tmax)
-                    intX = ray.origin.x + t * dx
-                    intY = ray.origin.y + t * dy
-                    intZ = ray.origin.z + t * dz
-                    
-                    distance = (intX - cyl.x)**2 + (intZ - cyl.z)**2
-                    if distance > (cyl.radius**2):
-                        return None
-                    
-                    intersectionPoint = PVector(intX, intY, intZ)
-                    # N = PVector((intX - cyl.x)/cyl.radius, (intY - intY) / cyl.radius, (intZ - cyl.z)/cyl.radius)
-                    N = None
-                    if intY < cyl.ymin:
-                        N = PVector(0, -1, 0)
-                    elif intY > cyl.ymax:
-                        N = PVector(0, 1, 0)
-                    else:
-                        N = PVector((intX - cyl.x)/cyl.radius, (intY - intY) / cyl.radius, (intZ - cyl.z)/cyl.radius)
-                    hitObj = Hit(t, intersectionPoint, cyl)
-                    hitObj.assignNormal(N.normalize())
-                    return hitObj    
-                
-                elif (tmin > 0 and tmax < 0) or (tmin < 0 and tmax > 0):
-                    t = max(tmin, tmax)
-                    intX = ray.origin.x + t * dx
-                    intY = ray.origin.y + t * dy
-                    intZ = ray.origin.z + t * dz
-                    intersectionPoint = PVector(intX, intY, intZ)
-                    # N = PVector((intX - cyl.x)/cyl.radius, (intY - intY) / cyl.radius, (intZ - cyl.z)/cyl.radius)
-                    N = None
-                    if intY < cyl.ymin:
-                        N = PVector(0, -1, 0)
-                    elif intY > cyl.ymax:
-                        N = PVector(0, 1, 0)
-                    else:
-                        N = PVector((intX - cyl.x)/cyl.radius, (intY - intY) / cyl.radius, (intZ - cyl.z)/cyl.radius)
-                    hitObj = Hit(t, intersectionPoint, cyl)
-                    hitObj.assignNormal(N.normalize())
-                    return hitObj   
-                return None
-            else:
-                return None
-        t = 0
-        if y1Flag == True and y2Flag == False:
-            t = t1
-        elif y1Flag == False and y2Flag == True:
-            t = t2
-        else:
-            t = min(t1, t2)
             
-        intX = ray.origin.x + t * dx
-        intY = ray.origin.y + t * dy
-        intZ = ray.origin.z + t * dz
-        
-        
-        intersectionPoint = PVector(intX, intY, intZ)
-        
-        N = None
-        if intY < cyl.ymin:
-            N = PVector(0, 1, 0)
-        elif intY > cyl.ymax:
-            N = PVector(0, -1, 0)
-        else:
+        if y1Flag == True and y2Flag == True:
+            mainBodyFlag = True
+            t = min(t1, t2)
+            intX = ray.origin.x + t * dx
+            intY = ray.origin.y + t * dy
+            intZ = ray.origin.z + t * dz
+            intersectionPoint = PVector(intX, intY, intZ)
             N = PVector((intX - cyl.x)/cyl.radius, (intY - intY) / cyl.radius, (intZ - cyl.z)/cyl.radius)
+            mainBodyHit = Hit(t, intersectionPoint, cyl)
+            mainBodyHit.assignNormal(N.normalize())
+        elif y1Flag == True and y2Flag == False:
+            mainBodyFlag = True
+            t = t1
+            intX = ray.origin.x + t * dx
+            intY = ray.origin.y + t * dy
+            intZ = ray.origin.z + t * dz
+            intersectionPoint = PVector(intX, intY, intZ)
+            N = PVector((intX - cyl.x)/cyl.radius, (intY - intY) / cyl.radius, (intZ - cyl.z)/cyl.radius)
+            mainBodyHit = Hit(t, intersectionPoint, cyl)
+            mainBodyHit.assignNormal(N.normalize())
+        elif y2Flag == True and y1Flag == False:
+            mainBodyFlag = True
+            t = t2
+            intX = ray.origin.x + t * dx
+            intY = ray.origin.y + t * dy
+            intZ = ray.origin.z + t * dz
+            intersectionPoint = PVector(intX, intY, intZ)
+            N = PVector((intX - cyl.x)/cyl.radius, (intY - intY) / cyl.radius, (intZ - cyl.z)/cyl.radius)
+            mainBodyHit = Hit(t, intersectionPoint, cyl)
+            mainBodyHit.assignNormal(N.normalize())
         
-        hitObj = Hit(t, intersectionPoint, cyl)
-        hitObj.assignNormal(N.normalize())
-        return hitObj
+        #MinCap check
+        if dy != 0:
+            tmin = (cyl.ymin - ray.origin.y) / dy
+            intX = ray.origin.x + tmin * dx
+            intY = ray.origin.y + tmin * dy
+            intZ = ray.origin.z + tmin * dz
+            distance = (intX - cyl.x)**2 + (intZ - cyl.z)**2
+            if distance < (cyl.radius**2) and tmin > 0:
+                botcapFlag = True
+                intersectionPoint = PVector(intX, intY, intZ)
+                N = PVector(0, -1, 0)
+                botcapHit = Hit(tmin, intersectionPoint, cyl)
+                botcapHit.assignNormal(N.normalize())
+        
+        #MaxCap check
+        if dy != 0: 
+            tmax = (cyl.ymax - ray.origin.y) / dy
+            intX = ray.origin.x + tmax * dx
+            intY = ray.origin.y + tmax * dy
+            intZ = ray.origin.z + tmax * dz
+            distance = (intX - cyl.x)**2 + (intZ - cyl.z)**2
+            if distance < (cyl.radius**2) and tmax > 0:
+                topcapFlag = True
+                intersectionPoint = PVector(intX, intY, intZ)
+                N = PVector(0, 1, 0)
+                topcapHit = Hit(tmax, intersectionPoint, cyl)
+                topcapHit.assignNormal(N.normalize())
+                
+        hitList = [botcapHit, topcapHit, mainBodyHit]
+        closestObject = None
+        closestT = None
+        for obj in hitList:
+            if obj != None:
+                if closestT == None:
+                    closestObject = obj
+                    closestT = obj.t
+                else:
+                    if obj.t < closestT:
+                        closestObject = obj
+                        closestT = obj.t
+        
+        return closestObject
     
 
 # read and interpret the appropriate scene description .cli file based on key press
@@ -419,34 +451,69 @@ def render_scene():
                 if isinstance(finalHit.object, Sphere):
                     ## Diffusion for sphere
                     surfaceCol = PVector(finalHit.object.surface.Cdr, finalHit.object.surface.Cdg, finalHit.object.surface.Cdb)
-                    pixCol = surfaceCol
-                    # N = PVector((finalHit.position.x - finalHit.object.x)/finalHit.object.radius, (finalHit.position.y - finalHit.object.y)/finalHit.object.radius, (finalHit.position.z - finalHit.object.z)/finalHit.object.radius)
+                    pixCol = PVector(0, 0, 0)
+                    # pixCol = surfaceCol
                     N = finalHit.surfaceNormal
+                    E = PVector(0 - finalHit.position.x, 0 - finalHit.position.y, 0 - finalHit.position.z).normalize()
                     global light
                     lvecs = PVector(0.0, 0.0, 0.0)
+                    speculars = PVector(0.0, 0.0, 0.0)
                     for l in light.lightSources:
+                        shadowExists = False
                         lPos = PVector(l[3], l[4], l[5])
                         lVec = (lPos - finalHit.position).normalize()
                         lCol = PVector(l[0], l[1], l[2])
-                        lVecContrib = lCol * max(0, N.dot(lVec))
-                        lvecs = lvecs + lVecContrib
+                        
+                        #Shadows
+                        # shadowHit = rayIntersectWorld(Ray(finalHit.position, lVec), finalHit.object)
+                        # if shadowHit != None:
+                        #     shadowExists = True
+                        
+                        #Diffusion
+                        if shadowExists == False:
+                            lVecContrib = lCol * max(0, N.dot(lVec))
+                            lvecs = lvecs + lVecContrib
+                
+                        #Specular
+                        if shadowExists == False:
+                            H = (lVec + E).normalize()
+                            intensity = pow(N.dot(H), finalHit.object.surface.P)
+                            specularLightContrib = intensity * lCol
+                            specularFinalColor = PVector(specularLightContrib.x * finalHit.object.surface.Csr, \
+                                                        specularLightContrib.y * finalHit.object.surface.Csg, \
+                                                        specularLightContrib.z * finalHit.object.surface.Csb)
+                            speculars = speculars + specularFinalColor
                     
                     pixCol = PVector(surfaceCol.x * lvecs.x, surfaceCol.y * lvecs.y, surfaceCol.z * lvecs.z)
                     pixCol = apply_ambiance(pixCol, finalHit.object)
+                    pixCol = pixCol + speculars
                 elif isinstance(finalHit.object, Cylinder):
                     surfaceCol = PVector(finalHit.object.surface.Cdr, finalHit.object.surface.Cdg, finalHit.object.surface.Cdb)
                     pixCol = surfaceCol
                     N = finalHit.surfaceNormal
+                    E = PVector(0 - finalHit.position.x, 0 - finalHit.position.y, 0 - finalHit.position.z).normalize()
                     global light
                     lvecs = PVector(0.0, 0.0, 0.0)
+                    speculars = PVector(0.0, 0.0, 0.0)
                     for l in light.lightSources:
                         lPos = PVector(l[3], l[4], l[5])
                         lVec = (lPos - finalHit.position).normalize()
                         lCol = PVector(l[0], l[1], l[2])
                         lVecContrib = lCol * max(0, N.dot(lVec))
                         lvecs = lvecs + lVecContrib
+                        
+                        #Specular
+                        H = (lVec + E).normalize()
+                        intensity = pow(N.dot(H), finalHit.object.surface.P)
+                        specularLightContrib = intensity * lCol
+                        specularFinalColor = PVector(specularLightContrib.x * finalHit.object.surface.Csr, \
+                                                     specularLightContrib.y * finalHit.object.surface.Csg, \
+                                                     specularLightContrib.z * finalHit.object.surface.Csb)
+                        speculars = speculars + specularFinalColor 
+                        
                     pixCol = PVector(surfaceCol.x * lvecs.x, surfaceCol.y * lvecs.y, surfaceCol.z * lvecs.z)
                     pixCol = apply_ambiance(pixCol, finalHit.object)
+                    pixCol = pixCol + speculars
             else:
                 global scene
                 pixCol = PVector(scene.backgroundR, scene.backgroundG, scene.backgroundB)

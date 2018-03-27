@@ -6,7 +6,7 @@
 # help you parse the scene description (.cli) files.
 
 def setup():
-    size(300, 300) 
+    size(150, 150) 
     noStroke()
     colorMode(RGB, 1.0)  # Processing color values will be in [0, 1]  (not 255)
     background(0, 0, 0)
@@ -117,11 +117,6 @@ def rayIntersectWorld(ray, selfObj = None):
             hitArr.append(checkSphereIntersection(ray, obj))
         elif isinstance(obj, Cylinder):
             hitArr.append(checkCylinderIntersection(ray, obj))
-            global debug
-            if debug:
-                print "shadow intersected cylinder"
-                print obj.ymin
-                print obj.ymax
 
     closestObject = None
     closestT = None
@@ -388,9 +383,19 @@ def apply_ambiance(pixCol, obj):
     newPixCol = PVector(pixCol.x + obj.surface.Car, pixCol.y + obj.surface.Cag, pixCol.z + obj.surface.Cab)
     return newPixCol
 
-def shade_the_hit(hit):
+def shade_the_hit(hit, ray, depth):
+    if hit == None:
+        global scene
+        pixCol = PVector(scene.backgroundR, scene.backgroundG, scene.backgroundB)
+        return pixCol
     surfaceCol = PVector(hit.object.surface.Cdr, hit.object.surface.Cdg, hit.object.surface.Cdb)
     pixCol = PVector(0, 0, 0)
+    if depth <= 7:
+        newE = PVector(ray.origin.x - hit.position.x, ray.origin.y - hit.position.y, ray.origin.z - hit.position.z)
+        D = (2 * (hit.surfaceNormal.dot(newE)) * hit.surfaceNormal - newE)
+        newRay = Ray(hit.position, D.normalize())
+        newHit = rayIntersectWorld(newRay, None)
+        pixCol = hit.object.surface.Krefl * shade_the_hit(newHit, newRay, depth + 1)
     
     N = hit.surfaceNormal
     E = PVector(0 - hit.position.x, 0 - hit.position.y, 0 - hit.position.z).normalize()
@@ -428,7 +433,7 @@ def shade_the_hit(hit):
             speculars = speculars + specularFinalColor
     
     ## Color from light
-    pixCol = PVector(surfaceCol.x * lvecs.x, surfaceCol.y * lvecs.y, surfaceCol.z * lvecs.z)
+    pixCol = pixCol + PVector(surfaceCol.x * lvecs.x, surfaceCol.y * lvecs.y, surfaceCol.z * lvecs.z)
     pixCol = pixCol + speculars
     return pixCol
 
@@ -438,15 +443,6 @@ def render_scene():
         for i in range(width):
             # Conversion to 3D Perspective Point
             global scene
-            
-            global debug
-            if i==50 and j == 7:
-                global debug
-                debug = True
-                print "Debug info from here"
-            else :
-                global debug
-                debug = False
             
             theta = 2*PI*scene.fovAngle/float(360)
             k = tan(theta/2)
@@ -459,25 +455,27 @@ def render_scene():
             ray = Ray(PVector(0, 0, 0), eyeRayDir)
             
             # Detect Intersection
-            global objects
-            hitArr = []
-            for object in objects:
-                if isinstance(object, Sphere):
-                    hitArr.append(checkSphereIntersection(ray, object))
-                elif isinstance (object, Cylinder):
-                    hitArr.append(checkCylinderIntersection(ray, object))
+            # global objects
+            # hitArr = []
+            # for object in objects:
+            #     if isinstance(object, Sphere):
+            #         hitArr.append(checkSphereIntersection(ray, object))
+            #     elif isinstance (object, Cylinder):
+            #         hitArr.append(checkCylinderIntersection(ray, object))
             
-            t = sys.maxint
-            finalHit = None
-            # print hitArr
-            for item in hitArr:
-                if item != None:
-                    if item.t < t and item.t >= 0:
-                        finalHit = item
+            # t = sys.maxint
+            # finalHit = None
+            # # print hitArr
+            # for item in hitArr:
+            #     if item != None:
+            #         if item.t < t and item.t >= 0:
+            #             finalHit = item
+            
+            finalHit = rayIntersectWorld(ray, None)
             
             pixCol = PVector(0, 0, 0)
             if finalHit != None:
-                pixCol = shade_the_hit(finalHit) 
+                pixCol = shade_the_hit(finalHit, ray, 1) 
                 
                 #Color from ambiance
                 pixCol = apply_ambiance(pixCol, finalHit.object)

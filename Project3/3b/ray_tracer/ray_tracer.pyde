@@ -44,18 +44,6 @@ class Light:
         print len(self.lightSources)
         
 class Surface:
-    Car = 0
-    Cag = 0
-    Cab = 0
-    Cdr = 0
-    Cdg = 0
-    Cdb = 0
-    Csr = 0
-    Csg = 0
-    Csb = 0
-    P = 0
-    Krefl = 0
-    
     def __init__(self, Car, Cag, Cab, Cdr, Cdg, Cdb, Csr, Csg, Csb, P, Krefl):
         self.Car = Car
         self.Cag = Cag
@@ -71,11 +59,6 @@ class Surface:
         print "surface object created"
         
 class Sphere:
-    x = 0
-    y = 0
-    z = 0
-    radius = 0
-    surface = None
     def __init__(self, x, y, z, radius):
         self.x = x
         self.y = y
@@ -88,12 +71,6 @@ class Sphere:
         self.surface = surface
         
 class Cylinder:
-    radius = 0
-    x = 0
-    z = 0
-    ymin = 0
-    ymax = 0
-    surface = None
     def __init__(self, x, ymin, ymax, z, radius):
         self.x = x
         self.ymin = ymin
@@ -113,15 +90,11 @@ class Ray:
         self.direction = direction
     
 class Hit:
-    t = 0
-    position = None
-    object = None
-    surfaceNormal = None
-    def __init__(self, t, position, object):
+    def __init__(self, t, position, object, N):
         self.t = t
         self.position = position
         self.object = object
-        self.surfaceNormal = None
+        self.surfaceNormal = N
     
     def assignNormal(self, nor):
         self.surfaceNormal = nor
@@ -131,6 +104,8 @@ light = None
 surfaces = None
 latestSurfaceIndex = -1 
 objects = None
+debug = False
+
 
 def rayIntersectWorld(ray, selfObj = None):
     global objects
@@ -142,16 +117,21 @@ def rayIntersectWorld(ray, selfObj = None):
             hitArr.append(checkSphereIntersection(ray, obj))
         elif isinstance(obj, Cylinder):
             hitArr.append(checkCylinderIntersection(ray, obj))
+            global debug
+            if debug:
+                print "shadow intersected cylinder"
+                print obj.ymin
+                print obj.ymax
 
     closestObject = None
     closestT = None
     for obj in hitArr:
         if obj != None:
-            if closestT == None:
+            if closestT == None and obj.t > 0:
                 closestObject = obj
                 closestT = obj.t
             else:
-                if obj.t < closestT:
+                if obj.t < closestT and obj.t > 0:
                     closestObject = obj
                     closestT = obj.t
     
@@ -181,8 +161,7 @@ def checkSphereIntersection(ray, s):
         intersectionPoint = PVector(intX, intY, intZ)
         
         N = PVector((intX - s.x)/s.radius, (intY - s.y)/s.radius, (intZ - s.z)/s.radius)
-        hitObj = Hit(t, intersectionPoint, s)
-        hitObj.assignNormal(N.normalize())
+        hitObj = Hit(t, intersectionPoint, s, N.normalize())
         return hitObj
 
 def checkCylinderIntersection(ray, cyl):
@@ -229,8 +208,7 @@ def checkCylinderIntersection(ray, cyl):
             intZ = ray.origin.z + t * dz
             intersectionPoint = PVector(intX, intY, intZ)
             N = PVector((intX - cyl.x)/cyl.radius, (intY - intY) / cyl.radius, (intZ - cyl.z)/cyl.radius)
-            mainBodyHit = Hit(t, intersectionPoint, cyl)
-            mainBodyHit.assignNormal(N.normalize())
+            mainBodyHit = Hit(t, intersectionPoint, cyl, N.normalize())
         elif y1Flag == True and y2Flag == False:
             mainBodyFlag = True
             t = t1
@@ -239,8 +217,7 @@ def checkCylinderIntersection(ray, cyl):
             intZ = ray.origin.z + t * dz
             intersectionPoint = PVector(intX, intY, intZ)
             N = PVector((intX - cyl.x)/cyl.radius, (intY - intY) / cyl.radius, (intZ - cyl.z)/cyl.radius)
-            mainBodyHit = Hit(t, intersectionPoint, cyl)
-            mainBodyHit.assignNormal(N.normalize())
+            mainBodyHit = Hit(t, intersectionPoint, cyl, N.normalize())
         elif y2Flag == True and y1Flag == False:
             mainBodyFlag = True
             t = t2
@@ -249,8 +226,8 @@ def checkCylinderIntersection(ray, cyl):
             intZ = ray.origin.z + t * dz
             intersectionPoint = PVector(intX, intY, intZ)
             N = PVector((intX - cyl.x)/cyl.radius, (intY - intY) / cyl.radius, (intZ - cyl.z)/cyl.radius)
-            mainBodyHit = Hit(t, intersectionPoint, cyl)
-            mainBodyHit.assignNormal(N.normalize())
+            mainBodyHit = Hit(t, intersectionPoint, cyl, N.normalize())
+            # mainBodyHit.assignNormal(N.normalize())
         
         #MinCap check
         if dy != 0:
@@ -263,8 +240,8 @@ def checkCylinderIntersection(ray, cyl):
                 botcapFlag = True
                 intersectionPoint = PVector(intX, intY, intZ)
                 N = PVector(0, -1, 0)
-                botcapHit = Hit(tmin, intersectionPoint, cyl)
-                botcapHit.assignNormal(N.normalize())
+                botcapHit = Hit(tmin, intersectionPoint, cyl, N.normalize())
+                # botcapHit.assignNormal(N.normalize())
         
         #MaxCap check
         if dy != 0: 
@@ -277,8 +254,8 @@ def checkCylinderIntersection(ray, cyl):
                 topcapFlag = True
                 intersectionPoint = PVector(intX, intY, intZ)
                 N = PVector(0, 1, 0)
-                topcapHit = Hit(tmax, intersectionPoint, cyl)
-                topcapHit.assignNormal(N.normalize())
+                topcapHit = Hit(tmax, intersectionPoint, cyl, N.normalize())
+                # topcapHit.assignNormal(N.normalize())
                 
         hitList = [botcapHit, topcapHit, mainBodyHit]
         closestObject = None
@@ -410,7 +387,50 @@ def interpreter(fname):
 def apply_ambiance(pixCol, obj):
     newPixCol = PVector(pixCol.x + obj.surface.Car, pixCol.y + obj.surface.Cag, pixCol.z + obj.surface.Cab)
     return newPixCol
+
+def shade_the_hit(hit):
+    surfaceCol = PVector(hit.object.surface.Cdr, hit.object.surface.Cdg, hit.object.surface.Cdb)
+    pixCol = PVector(0, 0, 0)
     
+    N = hit.surfaceNormal
+    E = PVector(0 - hit.position.x, 0 - hit.position.y, 0 - hit.position.z).normalize()
+    global light
+    lvecs = PVector(0.0, 0.0, 0.0)
+    speculars = PVector(0.0, 0.0, 0.0)
+
+    for l in light.lightSources:
+        lPos = PVector(l[3], l[4], l[5])
+        lVec = (lPos - hit.position).normalize()
+        lCol = PVector(l[0], l[1], l[2])    
+        shadowRayBlocked = False
+        
+        #Shadows
+        shadowHit = rayIntersectWorld(Ray(hit.position, (lPos - hit.position)*8), hit.object)
+        if shadowHit != None:
+            distToLight = lPos.dist(hit.position)
+            distToShadowIntersect = shadowHit.position.dist(hit.position)
+            if distToShadowIntersect < distToLight:
+                shadowRayBlocked = True
+        
+        #Diffusion
+        if not shadowRayBlocked:
+            lVecContrib = lCol * max(0, N.dot(lVec))
+            lvecs = lvecs + lVecContrib
+
+        #Specular
+        if not shadowRayBlocked:
+            H = (lVec + E).normalize()
+            intensity = pow(N.dot(H), hit.object.surface.P)
+            specularLightContrib = intensity * lCol
+            specularFinalColor = PVector(specularLightContrib.x * hit.object.surface.Csr, \
+                                        specularLightContrib.y * hit.object.surface.Csg, \
+                                        specularLightContrib.z * hit.object.surface.Csb)
+            speculars = speculars + specularFinalColor
+    
+    ## Color from light
+    pixCol = PVector(surfaceCol.x * lvecs.x, surfaceCol.y * lvecs.y, surfaceCol.z * lvecs.z)
+    pixCol = pixCol + speculars
+    return pixCol
 
 # render the ray tracing scene
 def render_scene():
@@ -418,6 +438,15 @@ def render_scene():
         for i in range(width):
             # Conversion to 3D Perspective Point
             global scene
+            
+            global debug
+            if i==50 and j == 7:
+                global debug
+                debug = True
+                print "Debug info from here"
+            else :
+                global debug
+                debug = False
             
             theta = 2*PI*scene.fovAngle/float(360)
             k = tan(theta/2)
@@ -448,72 +477,11 @@ def render_scene():
             
             pixCol = PVector(0, 0, 0)
             if finalHit != None:
-                if isinstance(finalHit.object, Sphere):
-                    ## Diffusion for sphere
-                    surfaceCol = PVector(finalHit.object.surface.Cdr, finalHit.object.surface.Cdg, finalHit.object.surface.Cdb)
-                    pixCol = PVector(0, 0, 0)
-                    # pixCol = surfaceCol
-                    N = finalHit.surfaceNormal
-                    E = PVector(0 - finalHit.position.x, 0 - finalHit.position.y, 0 - finalHit.position.z).normalize()
-                    global light
-                    lvecs = PVector(0.0, 0.0, 0.0)
-                    speculars = PVector(0.0, 0.0, 0.0)
-                    for l in light.lightSources:
-                        shadowExists = False
-                        lPos = PVector(l[3], l[4], l[5])
-                        lVec = (lPos - finalHit.position).normalize()
-                        lCol = PVector(l[0], l[1], l[2])
-                        
-                        #Shadows
-                        # shadowHit = rayIntersectWorld(Ray(finalHit.position, lVec), finalHit.object)
-                        # if shadowHit != None:
-                        #     shadowExists = True
-                        
-                        #Diffusion
-                        if shadowExists == False:
-                            lVecContrib = lCol * max(0, N.dot(lVec))
-                            lvecs = lvecs + lVecContrib
+                pixCol = shade_the_hit(finalHit) 
                 
-                        #Specular
-                        if shadowExists == False:
-                            H = (lVec + E).normalize()
-                            intensity = pow(N.dot(H), finalHit.object.surface.P)
-                            specularLightContrib = intensity * lCol
-                            specularFinalColor = PVector(specularLightContrib.x * finalHit.object.surface.Csr, \
-                                                        specularLightContrib.y * finalHit.object.surface.Csg, \
-                                                        specularLightContrib.z * finalHit.object.surface.Csb)
-                            speculars = speculars + specularFinalColor
-                    
-                    pixCol = PVector(surfaceCol.x * lvecs.x, surfaceCol.y * lvecs.y, surfaceCol.z * lvecs.z)
-                    pixCol = apply_ambiance(pixCol, finalHit.object)
-                    pixCol = pixCol + speculars
-                elif isinstance(finalHit.object, Cylinder):
-                    surfaceCol = PVector(finalHit.object.surface.Cdr, finalHit.object.surface.Cdg, finalHit.object.surface.Cdb)
-                    pixCol = surfaceCol
-                    N = finalHit.surfaceNormal
-                    E = PVector(0 - finalHit.position.x, 0 - finalHit.position.y, 0 - finalHit.position.z).normalize()
-                    global light
-                    lvecs = PVector(0.0, 0.0, 0.0)
-                    speculars = PVector(0.0, 0.0, 0.0)
-                    for l in light.lightSources:
-                        lPos = PVector(l[3], l[4], l[5])
-                        lVec = (lPos - finalHit.position).normalize()
-                        lCol = PVector(l[0], l[1], l[2])
-                        lVecContrib = lCol * max(0, N.dot(lVec))
-                        lvecs = lvecs + lVecContrib
-                        
-                        #Specular
-                        H = (lVec + E).normalize()
-                        intensity = pow(N.dot(H), finalHit.object.surface.P)
-                        specularLightContrib = intensity * lCol
-                        specularFinalColor = PVector(specularLightContrib.x * finalHit.object.surface.Csr, \
-                                                     specularLightContrib.y * finalHit.object.surface.Csg, \
-                                                     specularLightContrib.z * finalHit.object.surface.Csb)
-                        speculars = speculars + specularFinalColor 
-                        
-                    pixCol = PVector(surfaceCol.x * lvecs.x, surfaceCol.y * lvecs.y, surfaceCol.z * lvecs.z)
-                    pixCol = apply_ambiance(pixCol, finalHit.object)
-                    pixCol = pixCol + speculars
+                #Color from ambiance
+                pixCol = apply_ambiance(pixCol, finalHit.object)
+                
             else:
                 global scene
                 pixCol = PVector(scene.backgroundR, scene.backgroundG, scene.backgroundB)

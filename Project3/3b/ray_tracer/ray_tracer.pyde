@@ -6,7 +6,7 @@
 # help you parse the scene description (.cli) files.
 
 def setup():
-    size(150, 150) 
+    size(300, 300) 
     noStroke()
     colorMode(RGB, 1.0)  # Processing color values will be in [0, 1]  (not 255)
     background(0, 0, 0)
